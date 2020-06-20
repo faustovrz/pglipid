@@ -1,0 +1,8 @@
+default:
+  corncyc:
+    fasta:
+    pathway:
+  xref:
+  output:
+    PBE:
+    PCAdapt:
