@@ -7,13 +7,13 @@ corncyc_seq <- Biostrings::readAAStringSet(filepath = "/ref/zea/corncyc/corncycP
 corncyc_genes <- data.frame(
   #defline = gsub(" \\| \\S+: | \\| ","\t",names(corncyc_seq), perl =TRUE)
   defline =  names(corncyc_seq)
-  ) %>% 
-  tidyr::separate(defline, 
-                  c("fasta.id", 
+  ) %>%
+  tidyr::separate(defline,
+                  c("fasta.id",
                     "transcript",
                     "description",
                     "Species",
-                    "Gene.id"), 
+                    "Gene.id"),
                   sep = " \\| \\S+: | \\| ") %>%
   dplyr::mutate(Gene.name = gsub("_\\S\\d{3}\\.\\d+","",transcript, perl =TRUE)) %>%
   dplyr::select(fasta.id,Gene.id,Gene.name, everything())
@@ -40,8 +40,8 @@ test_count <- function(test_genes) {
     dplyr::left_join(corncyc_pathway) %>%
     dplyr::group_by(Pathway.id,Pathway.name) %>%
     dplyr::summarise(n_test = length(Gene.name)) %>%
-    dplyr::arrange(-n_test) 
-  
+    dplyr::arrange(-n_test)
+
     test_count[is.na(test_count)] <-"unassigned"
     test_count
     }
@@ -57,9 +57,9 @@ cyc_test <- function(test_genes) {
   cyc_test <- cyc_count %>%
     dplyr::right_join(test_count(test_genes)) %>%
     dplyr::mutate(cover = n_test/n) %>%
-    dplyr::arrange(-cover) %>% 
+    dplyr::arrange(-cover) %>%
     as.data.frame()
-  # cyc_test <- within(cyc_test,{ 
+  # cyc_test <- within(cyc_test,{
   #   n[Pathway.name == "unassigned"] <- unassined_n
   #   cover <- n_test/n
   #   })
@@ -67,7 +67,7 @@ cyc_test <- function(test_genes) {
 
 
 corncyc_classify <- function(test_genes, bg = NULL){
-  
+
   sum_test <- length(test_genes)
   cyc_test <- cyc_test(test_genes)
   cyc_genes <-  corncyc_pathway %>%
@@ -76,19 +76,19 @@ corncyc_classify <- function(test_genes, bg = NULL){
     dplyr::select(Gene.name) %>%
     unique() %>% t() %>% as.vector()
   sum_cyc <- length(cyc_genes)
-  
+
   if (is.null(bg)){
     bg <- union(test_genes,cyc_genes)
-  } 
-  
+  }
+
   if (! all(test_genes %in% bg)){
     stop(paste("Test genes absent from background:",
                test_genes[!test_genes %in% bg])
          )
   }
-  
+
   sum_total <- length(bg)
-  
+
   fisher <- apply(cyc_test[3:5],1, FUN = function(x){
     if(any(is.na(x))){ return(c(NA,NA)) }
     else {
@@ -103,10 +103,10 @@ colnames(fisher) <- c("p_value", "odds_ratio")
 
 cyc_test <- cbind(cyc_test,fisher)
 
-         
+
 cyc_test %>%as_tibble() %>%
   dplyr::mutate(FDR = p.adjust(cyc_test$p_value)) %>%
   dplyr::select(Pathway.id:cover,odds_ratio, p_value,FDR) %>%
-  dplyr::arrange(FDR,p_value) 
+  dplyr::arrange(FDR,p_value)
 }
 

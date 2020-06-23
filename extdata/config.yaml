@@ -1,10 +1,12 @@
 corncyc:
   source: 'https://ftp.maizegdb.org/MaizeGDB/FTP/MetabolicResources/CornCyc_install_files/CornCyc_8.0/corncyc8.0.tar.gz'
-  pathway_col:  '/ref/zea/corncyc/8.0/data/pathways.col'
-  genes_col:  '/ref/zea/corncyc/8.0/data/genes.col'
-  enzymes_col: '/ref/zea/corncyc/8.0/data/enzymes.col'
-  proteins_dat: '/ref/zea/corncyc/8.0/data/proteins.dat'
-  reactions_dat: '/ref/zea/corncyc/8.0/data/reactions.dat'
+  dir:  '/ref/zea/corncyc/8.0/data'
+  pathways_col:   "pathways.col"
+  genes_col:     "genes.col"
+  enzymes_col:   "enzymes.col"
+  proteins_dat:  "proteins.dat"
+  reactions_dat: "reactions.dat"
+  genes_dat: "genes.dat"
 
 
 KEGG:

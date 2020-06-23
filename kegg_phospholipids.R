@@ -20,14 +20,14 @@ glpm_genes <- paste0("zma:",glpm[[1]]$GENE[seq(1,glpm_ngene,by =2)])
 # You can only get 10 at a time!!!!!!!!!!!!!
 #
 # seqs <- Biostrings::DNAStringSet()
-# seqlist <- lapply(chunks, 
+# seqlist <- lapply(chunks,
 #   function(x){
 #     seqs <- append(seqs, keggGet(x, "ntseq"))
 #   }
 # )
 
 # seqs <- Biostrings::DNAStringSet()
-# 
+#
 # for(x in names(seqlist)){
 #          seqs <- append(seqs,seqlist[[x]])
 # }
@@ -56,7 +56,7 @@ system(blastcmd)
 blast <- read.delim("blast", header = FALSE)
 
 zma00564 <- data.frame (
-  Gene.name = gsub("_.*","", 
+  Gene.name = gsub("_.*","",
                    blast$V2[blast$V3>95],
                    perl = TRUE) %>%
     unique()
@@ -65,12 +65,12 @@ zma00564 <- data.frame (
 
 pathway_cover <- corncyc_classify(zma00564$Gene.name)
 
- 
+
 
 zma00564_expanded_cyc <- data.frame(
   Gene.name = union(
     zma00564$Gene.name,
-    pathway_cover %>% 
+    pathway_cover %>%
       dplyr::filter(n_test > 1) %>%  # remove incidental pathways
       dplyr::select(Pathway.id) %>%
       dplyr::inner_join(corncyc_pathway) %>%
@@ -83,8 +83,8 @@ zma00564_expanded_cyc <- data.frame(
 
 corncyc_classify(zma00564_expanded_cyc$Gene.name)
 
-write.csv(zma00564_expanded_cyc, 
-          file = "zma00564_expanded_cyc.csv", 
+write.csv(zma00564_expanded_cyc,
+          file = "zma00564_expanded_cyc.csv",
           quote = FALSE,
           row.names = FALSE)
 
@@ -139,7 +139,7 @@ system(blastcmd)
 # add colnames to blast table?
 blast <- read.delim("blast", header = FALSE)
 zma00561 <- data.frame (
-  Gene.name = gsub("_.*","", 
+  Gene.name = gsub("_.*","",
                    blast$V2[blast$V3>95],
                    perl = TRUE) %>%
               unique()
@@ -153,7 +153,7 @@ pathway_cover <- corncyc_classify(zma00561$Gene.name)
 zma00561_expanded_cyc <- data.frame(
   Gene.name = union(
     zma00561$Gene.name,
-    pathway_cover %>% 
+    pathway_cover %>%
       dplyr::filter(n_test > 1) %>%  # remove incidental pathways
       dplyr::select(Pathway.id) %>%
       dplyr::inner_join(corncyc_pathway) %>%
@@ -166,12 +166,12 @@ zma00561_expanded_cyc <- data.frame(
 
 
 
-write.csv(zma0056_expanded_cyc, 
-          file = "zma0056_expanded_cyc.csv", 
+write.csv(zma0056_expanded_cyc,
+          file = "zma0056_expanded_cyc.csv",
           quote = FALSE,
           row.names = FALSE)
 
-zma00561_union_zma00564 <- 
+zma00561_union_zma00564 <-
  data.frame(
     gene = union(
       zma00561_expanded_cyc$Gene.name,
@@ -183,12 +183,12 @@ zma00561_union_zma00564 <-
 corncyc_classify(
   zma00561_union_zma00564$gene
 ) %>%
-  print(n = 60)  %>% 
+  print(n = 60)  %>%
   write.csv("zma00561_union_zma00564_expanded_corncyc_cover.csv")
 
 
-write.csv(zma00561_union_zma00564, 
-          file = "zma00561_union_zma00564_expanded_cyc.csv", 
+write.csv(zma00561_union_zma00564,
+          file = "zma00561_union_zma00564_expanded_cyc.csv",
           quote = FALSE,
           row.names = FALSE)
 

@@ -2,14 +2,26 @@ library(Biostrings)
 library(dplyr)
 
 config.yaml <- file.path('extdata','config.yaml')
-
+file.exists(config.yaml)
 configr::eval.config.sections(config.yaml)
 
 config <- configr::read.config(file = config.yaml)
 
-read_cyc_col <- function(x){
+corncyc <-  configr::eval.config(
+  config = "corncyc",
+  file = config.yaml)
+
+cyc_file <- function(x){
+  file.path(corncyc$dir,corncyc[x])
+}
+
+
+read_col <- function(input = NULL) {
+  if ( cyc_file(input) %>% file.exists()) {
+    input <- cyc_file(input)
+  }
   read.table(
-    x,
+    input,
     sep = "\t",
     header = TRUE,
     quote = "",
@@ -17,47 +29,94 @@ read_cyc_col <- function(x){
     na.strings = "")
 }
 
-path_cyc_wide <- read_cyc_col(config$corncyc$pathway)
+
+read_dat <- function(input = NULL){
+
+  if ( file.exists(cyc_file(input))) {
+    input <- cyc_file(input)
+  }
+
+  dat <- readLines(input, encoding = "UTF-8") %>%
+    gsub("^ +", "", .,) %>%    # remove leading spaces
+    gsub(" +$", "", .,)        # remove trailing spaces
+
+  dat <- dat[!grepl("^#|^/$", dat)]  # remove pound comments,
+                                     # and single slash lines
+  dat <- paste(
+    iconv(dat,
+          from="UTF-8",              # changing the damn encoding
+          to = "UTF-8"),             # from UTF8 to UTF8 because of BOM?
+    collapse = "\n"
+  )  %>%
+    gsub("\\.\n/?=[^/]",             # Multiple COMMENT values start with /
+         "\\.\nCOMMENT - ",
+         ., perl = TRUE) %>%
+    strsplit("^//\n|\n//\n") %>%     # Chunks split by \n//\n
+    unlist()                         # str_split returns a list
+
+  dat <- lapply(dat, FUN = function(x) strsplit(x,"\n") %>% unlist())
+  names(dat) <- gsub("UNIQUE-ID - ", "",
+                     sapply(dat, "[[", 1))
+  dat2 <-list()
+
+  for( name in names(dat)){
+    key_val  <- strsplit(dat[[name]], " - ")
+    val <-  sapply(key_val, "[", 2)
+    names(val) <- sapply(key_val,"[", 1)
+    dat2[[name]] <- val
+  }
+
+  return(dat2)
+}
+
+genes_col <- read_col("genes_col")
 
 
-corncyc_pathway <- cbind(
+pathways_col <- read_col("pathways_col")
+
+
+corncyc_pathway <-   pathways_col %>%
   # pivot GENE.ID
-  path_cyc_wide %>%
   dplyr::select(UNIQUE.ID, NAME, starts_with("GENE.ID")) %>%
   tidyr::pivot_longer(
     cols = starts_with("GENE.ID"),
     values_to = "Gene.id",
     values_drop_na = TRUE
   ) %>%
-  dplyr::select(-name),
+  dplyr::select(-name) %>%
+  dplyr::rename(Pathway.id = UNIQUE.ID, Pathway.name = NAME) %>%
+  dplyr::left_join(
+    genes_col %>%
+      dplyr::select(Gene.id = UNIQUE.ID, Gene.name = NAME)
+  )
 
-  # pivot GENE.NAME
-  path_cyc_wide %>%
-    dplyr::select(UNIQUE.ID, starts_with("GENE.NAME")) %>%
-    tidyr::pivot_longer(
-      cols = starts_with("GENE.NAME"),
-      values_to = "Gene.name",
-      values_drop_na = TRUE) %>%
-    dplyr::select(-UNIQUE.ID,-name)
-  ) %>%
-  dplyr::rename(Pathway.id = UNIQUE.ID, Pathway.name = NAME)
 
-corncyc_genes <- read_cyc_col(config$corncyc$genes) %>%
-  dplyr::rename(Gene.id = UNIQUE.ID, Gene.name = NAME)
+genes_dat <- read_dat("genes_dat")
 
-corncyc_gene_synonym <- corncyc_genes %>%
-  dplyr::select( Gene.name, dplyr::starts_with("SYNONYM")) %>%
+corncyc_gene_synonym <- genes_col %>%
+  # pivot synonym
+  dplyr::select( UNIQUE.ID,NAME, dplyr::starts_with("SYNONYM")) %>%
   tidyr::pivot_longer(
     cols = dplyr::starts_with("SYNONYM"),
     values_to = "Synonym",
     values_drop_na = TRUE) %>%
   dplyr::select(-name) %>%
-  dplyr::arrange(Synonym) %>%
+  dplyr::rename(Gene.id = UNIQUE.ID) %>%
+  dplyr::arrange( Synonym) %>%
   print(n = 200)
 
+# pin1 has no associated transcript!!!!!
+# But I do know that it is  Zm00001d044812
+# This  is an error in the database
+# I do not know if it is worth trying to curate the table or the dat file
+# probably in version 9 this is fixed
+# genes_dat[["GDQC-114725"]]
+# with(genes_col, genes_col[UNIQUE.ID == "GDQC-114725",])
+# with(genes_col, genes_col[grepl("Zm00001d044812", NAME),])
+# sum(grepl("Zm00001d044812",genes_col$NAME))
 
-corncyc_enzymes <- read_cyc_col(config$corncyc$enzymes)
 
+corncyc_enzymes <- read_col("enzymes_col")
 
 
 corncyc_pathway %>%
@@ -66,10 +125,8 @@ corncyc_pathway %>%
   dplyr::arrange(-n)
 
 
-corncyc_seq <- Biostrings::readAAStringSet(
-  filepath = config$pathwayc$fasta
-  )
-corncyc_pathway[50:55,]
+
+
 
 cyc_enz_sub <- corncyc_enzymes %>%
   dplyr::select(UNIQUE.ID,Subunit = SUBUNIT.COMPOSITION) %>%
@@ -93,95 +150,55 @@ enz_rxn_path <- corncyc_enzymes %>%
     Gene.id = gsub("-MONOMER","",Protein.id)
   )
 
-invalid_utf8_ <- function(x){
 
-  !is.na(x) & is.na(iconv(x, "UTF-8", "UTF-8"))
 
-}
-
-detect_invalid_utf8 <- function(string, seperator){
-
-  stringSplit <- unlist(strsplit(string, seperator))
-
-  invalidIndex <- unlist(lapply(stringSplit, invalid_utf8_))
-
-  data.frame(
-    word = stringSplit[invalidIndex],
-    stringIndex = which(invalidIndex == TRUE)
-  )
-
-}
-
-gsub("red","blue", s)
-read_dat <- function(x){
-  dat <- NULL
-  dat <- readLines(x, encoding = "UTF-8") %>%
-          gsub("^ +", "", .,) %>%    # remove leading spaces
-          gsub(" +$", "", .,)        # remove trailing spaces
-
-  dat <- dat[!grepl("^#|^/$", dat)]  # remove pound comments,
-                                     # and single slash lines
-  dat <- paste(
-    iconv(dat, from="UTF-8",         # changing the damn encoding
-          to = "UTF-8"),             # from UTF8 to UTF8 because BOM?
-    collapse = "\n"
-    )  %>%
-    gsub("\\.\n/?=[^/]",             # Multiple COMMENT values start with /
-         "\\.\nCOMMENT - ",
-         ., perl = TRUE) %>%
-    strsplit("^//\n|\n//\n") %>%     # Chunks split by \n//\n
-    unlist()                         # str_split returns a list
-
-  dat <- lapply(dat, FUN = function(x) strsplit(x,"\n") %>% unlist())
-  names(dat) <- gsub("UNIQUE-ID - ", "",
-                sapply(dat, "[[", 1))
-  dat2 <-list()
-
-  for( p in names(dat)){
-    key_val  <- strsplit(dat[[p]], " - ")
-    val <-  sapply(key_val, "[", 2)
-    names(val) <- sapply(key_val,"[", 1)
-    dat2[[p]] <- val
-  }
-
-  return(dat2)
-}
-
-protein_dat <- read_dat(config$corncyc$proteins_dat)
+proteins_dat <- read_dat("proteins_dat")
 
 enz_rxn <-NULL
 
 enz_rxn <- lapply(protein_dat, function(x){
 
-   catalyzes <- x[names(x) == "CATALYZES"]
-    if(length(catalyzes) == 0){
-      ENZRXN <- NA
-    } else{
-      ENZRXN <- catalyzes
-    }
+          catalyzes <- x[names(x) == "CATALYZES"]
+          if(length(catalyzes) == 0){
+            ENZRXN <- NA
+          } else{
+            ENZRXN <- catalyzes
+          }
 
-   genes <- x[names(x) == "GENE"]
-   if(length(genes) == 0){
-     GENE <- NA
-   } else{
-     GENE <- genes
-   }
+         genes <- x[names(x) == "GENE"]
+         if(length(genes) == 0){
+           GENE <- NA
+         } else{
+           GENE <- genes
+         }
 
- data.frame(
-  Protein.id = x["UNIQUE-ID"],
-  Gene.id    = GENE,
-  ENZRXN     = ENZRXN
- )
- }
-) %>% dplyr::bind_rows()
+       data.frame(
+        Protein.id = x["UNIQUE-ID"],
+        Gene.id    = GENE,
+        ENZRXN     = ENZRXN
+       )
+     }
+  ) %>% dplyr::bind_rows()
 
 rownames(enz_rxn) <- NULL
 
-enz_rxn %>%
-  dplyr::left_join(enz_rxn_path)
+orphan_enz <- enz_rxn %>%
+  dplyr::left_join(enz_rxn_path) %>%
+  dplyr::group_by(Protein.id) %>%
+  dplyr::filter(all(is.na(Pathway.id))) %>%
+  unique()
 
-reactions_dat <- read_dat(config$corncyc$reactions_dat)
+reactions_dat <- read_dat("reactions_dat")
 
+reactions_dat <-NULL
+
+# legacy functions when I was working with PMN12.5 corncyc.fasta.
+# source:  ftp://ftp.plantcyc.org/Pathways/BLAST_sets/PMN_BLAST_archives/PMN12.5/corncyc.fasta
+# Now I work with the ensembl cdna fasta file
+
+corncyc_seq <- Biostrings::readAAStringSet(
+  filepath = config$pathwayc$fasta
+)
 
 corncyc_genes <- data.frame(
   #defline = gsub(" \\| \\S+: | \\| ","\t",names(corncyc_seq), perl =TRUE)
