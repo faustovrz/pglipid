@@ -6,16 +6,11 @@ corncyc:
   enzymes_col:   "enzymes.col"
   proteins_dat:  "proteins.dat"
   reactions_dat: "reactions.dat"
-  genes_dat: "genes.dat"
-
-
-KEGG:
-
+  genes_dat:     "genes.dat"
+#KEGG:
 ref:
- source:
-  xref:
- xref:
-
+  xref: "/ref/zea/gene_model_xref_v3.txt"
 output:
+  dir:   '/Volumes/GoogleDrive/My Drive/repos/pglipid/extdata/output'
   PBE:
   PCAdapt:
