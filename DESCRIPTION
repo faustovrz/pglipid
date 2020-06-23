@@ -1,0 +1,15 @@
+Package: pglipid
+Title: Highland maize phosphoglycerolipid analysis
+Version: 0.0.0.9000
+Authors@R: 
+    person(given = "Fausto",
+           family = "Rodríguez",
+           role = c("aut", "cre"),
+           email = "faustovrz@gmail.com",
+           comment = c(ORCID = "https://orcid.org/0000-0002-8088-1113"))
+Description: Functions for glycerolipid analysis.
+License: `use_mit_license()`, 
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.0.9000
