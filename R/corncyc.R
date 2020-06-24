@@ -32,14 +32,14 @@ read_col <- function(input = NULL) {
 
 
 read_dat <- function(input = NULL){
-
+input = "proteins_dat"
   if ( file.exists(cyc_file(input))) {
     input <- cyc_file(input)
   }
 
   dat <- readLines(input, encoding = "UTF-8") %>%
-    gsub("^ +", "", .,) %>%    # remove leading spaces
-    gsub(" +$", "", .,)        # remove trailing spaces
+    gsub("^ +", "", .,) %>%          # remove leading spaces
+    gsub(" +$", "", .,)              # remove trailing spaces
 
   dat <- dat[!grepl("^#|^/$", dat)]  # remove pound comments,
                                      # and single slash lines
@@ -58,23 +58,40 @@ read_dat <- function(input = NULL){
   dat <- lapply(dat, FUN = function(x) strsplit(x,"\n") %>% unlist())
   names(dat) <- gsub("UNIQUE-ID - ", "",
                      sapply(dat, "[[", 1))
-  dat2 <-list()
+  out <- list()
 
   for( name in names(dat)){
-    key_val  <- strsplit(dat[[name]], " - ")
-    val <-  sapply(key_val, "[", 2)
-    names(val) <- sapply(key_val,"[", 1)
-    dat2[[name]] <- val
+    key_val  <- strsplit(dat[[name]], " - ")  #  " - " delimits key from value
+    val <-  sapply(key_val, "[", 2)           #  retrieve values
+    names(val) <- sapply(key_val,"[", 1)      #  retrieve keys
+    out[[name]] <- val
   }
 
-  return(dat2)
+  return(out)
 }
 
-genes_col <- read_col("genes_col")
+add_transcript_version<-function(x){
+  # Well, there are no other versions other than 1
+  # I checked:
+  # Zm <- corncyc_pathway$Gene.name[grep("Zm",corncyc_pathway$Gene.name)]
+  # Zm.ver <- gsub(".*\\.","",Zm) %>% as.integer()
+  # table(Zm.ver)
+  # Zm.ver
+  # 1
+  # 9120
+  paste(x,1, sep = '.' )
+
+}
+
+
+drop_transcript_suffix <- function(x) {
+  gsub("_[TP]\\d\\d.*", "", x)
+}
 
 
 pathways_col <- read_col("pathways_col")
 
+xref <- read.table(config$ref$xref, sep = "\t", header = TRUE, na.strings = "")
 
 corncyc_pathway <-   pathways_col %>%
   # pivot GENE.ID
@@ -89,7 +106,9 @@ corncyc_pathway <-   pathways_col %>%
   dplyr::left_join(
     genes_col %>%
       dplyr::select(Gene.id = UNIQUE.ID, Gene.name = NAME)
-  )
+  ) %>%
+  dplyr::mutate( v4_gene_model = drop_transcript_suffix(Gene.name))
+
 
 
 # genes_dat <- read_dat("genes_dat")
@@ -103,8 +122,7 @@ corncyc_gene_synonym <- genes_col %>%
     values_drop_na = TRUE) %>%
   dplyr::select(-name) %>%
   dplyr::rename(Gene.id = UNIQUE.ID) %>%
-  dplyr::arrange( Synonym) %>%
-  print(n = 200)
+  dplyr::arrange( Synonym)
 
 # pin1 has no associated transcript!!!!!
 #
@@ -131,10 +149,11 @@ corncyc_gene_synonym <- genes_col %>%
 # sum(grepl("Zm00001d044812",genes_col$NAME))
 
 
-corncyc_pathway %>%
-  dplyr::group_by(Pathway.id) %>%
-  dplyr::summarize(n = length(Gene.id)) %>%
-  dplyr::arrange(-n)
+# corncyc_pathway %>%
+#   dplyr::group_by(Pathway.id) %>%
+#   dplyr::summarize(n = length(Gene.id)) %>%
+#   dplyr::arrange(-n)
+
 
 enzymes_col <- read_col("enzymes_col")
 
@@ -192,6 +211,7 @@ enz_rxn <- lapply(proteins_dat, function(x){
 
 rownames(enz_rxn) <- NULL
 
+colnames(enz_rxn)
 orphan_enz <- enz_rxn %>%
   dplyr::left_join(enz_rxn_path) %>%
   dplyr::group_by(Protein.id) %>%
@@ -213,23 +233,6 @@ gene_n <- nrow(genes_col)
 unassined_n <-  gene_n - pathway_n
 
 colnames(corncyc_pathway)
-
-add_transcript_version<-function(x){
-  # Well, there are no other versions other than 1
-  # I checked:
-  # Zm <- corncyc_pathway$Gene.name[grep("Zm",corncyc_pathway$Gene.name)]
-  # Zm.ver <- gsub(".*\\.","",Zm) %>% as.integer()
-  # table(Zm.ver)
-  # Zm.ver
-  # 1
-  # 9120
-  paste(x,1, sep = '.' )
-
-}
-
-drop_transcript_suffix <- function(x) {
-  gsub("_[TP]\\d\\d\\d.*", "", x)
-}
 
 
 test_count <- function(test_genes) {
@@ -312,37 +315,3 @@ cyc_test %>%as_tibble() %>%
 
 
 
-
-
-# legacy functions when I was working with PMN12.5 corncyc.fasta.
-# source:  ftp://ftp.plantcyc.org/Pathways/BLAST_sets/PMN_BLAST_archives/PMN12.5/corncyc.fasta
-# Now I work with the ensembl cdna fasta file
-
-corncyc_seq <- Biostrings::readAAStringSet(
-  filepath = config$pathwayc$fasta
-)
-
-corncyc_genes <- data.frame(
-  #defline = gsub(" \\| \\S+: | \\| ","\t",names(corncyc_seq), perl =TRUE)
-  defline =  names(corncyc_seq)
-) %>%
-  tidyr::separate(defline,
-                  c("fasta.id",
-                    "transcript",
-                    "description",
-                    "Species",
-                    "Gene.id"),
-                  sep = " \\| \\S+: | \\| ") %>%
-  dplyr::mutate(Gene.name = gsub("_\\S\\d{3}\\.\\d+","",transcript, perl =TRUE)) %>%
-  dplyr::select(fasta.id,Gene.id,Gene.name, everything())
-
-row.names(corncyc_genes) <- corncyc_genes$fasta.id
-
-# colnames(corncyc_genes)
-# corncyc_genes[-5]
-
-pathway_n <- corncyc_pathway %>%
-  dplyr::select(Gene.id) %>%
-  dplyr::filter(Gene.id != "unknown") %>%
-  unique() %>%
-  nrow()
