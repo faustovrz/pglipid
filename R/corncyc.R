@@ -90,8 +90,11 @@ drop_transcript_suffix <- function(x) {
 
 
 pathways_col <- read_col("pathways_col")
+genes_col <- read_col("genes_col")
+genes_col$v4_gene_model <- drop_transcript_suffix(genes_col$NAME)
 
 xref <- read.table(config$ref$xref, sep = "\t", header = TRUE, na.strings = "")
+
 
 corncyc_pathway <-   pathways_col %>%
   # pivot GENE.ID
@@ -283,34 +286,74 @@ corncyc_classify <- function(test_genes, bg = NULL){
   if (is.null(bg)){
     bg <- union(test_genes,cyc_genes)
   }
-
-  if (! all(test_genes %in% bg)){
-    stop(paste("Test genes absent from background:",
-               test_genes[!test_genes %in% bg])
-         )
+  if(is.numeric(bg) & length(bg) == 1){
+    sum_total <- bg
+  }else{
+    if (! all(test_genes %in% bg)){
+      stop(paste("Test genes absent from background:",
+                 test_genes[!test_genes %in% bg])
+           )
+    }
+    sum_total <- length(bg)
   }
 
-  sum_total <- length(bg)
 
   fisher <- apply(cyc_test[3:5],1, FUN = function(x){
-    if(any(is.na(x))){ return(c(NA,NA)) }
-    else {
-      m <- c(x["n_test"]            , x["n"] - x["n_test"],
-             sum_test - x["n_test"] , sum_total - sum_test +  x["n_test"] - x["n"] ) %>%
-        matrix( ncol =2, nrow = 2) %>% t()
-      f <- fisher.test(m,
-                       alternative="greater")
-      c(f$p.value, f$estimate)}
-}) %>% t()
-colnames(fisher) <- c("p_value", "odds_ratio")
+      if(any(is.na(x))){ return(c(NA,NA)) }
+      else {
+        m <- c(x["n_test"]            , x["n"] - x["n_test"],
+               sum_test - x["n_test"] , sum_total - sum_test +  x["n_test"] - x["n"] ) %>%
+          matrix( ncol =2, nrow = 2) %>% t()
+        f <- fisher.test(m, alternative="greater")
+        c(f$p.value, f$estimate)}
+  }) %>% t()
+  colnames(fisher) <- c("p_value", "odds_ratio")
 
-cyc_test <- cbind(cyc_test,fisher)
+  cyc_test <- cbind(cyc_test,fisher)
 
 
-cyc_test %>%as_tibble() %>%
-  dplyr::mutate(FDR = p.adjust(cyc_test$p_value)) %>%
-  dplyr::select(Pathway.id:cover,odds_ratio, p_value,FDR) %>%
-  dplyr::arrange(FDR,p_value)
+  cyc_test %>%as_tibble() %>%
+    dplyr::mutate(FDR = p.adjust(cyc_test$p_value)) %>%
+    dplyr::select(Pathway.id:cover,odds_ratio, p_value,FDR) %>%
+    dplyr::arrange(FDR,p_value)
+}
+
+
+transcript <- subset(annot,
+                     type == "mRNA" &
+                     biotype != "transposable_element" &
+                     biotype != "pseudogene" &
+                     seqnames %in% 1:10) %>%
+              as.data.frame()
+
+transcript$gene_id <- drop_transcript_suffix(transcript$transcript_id)
+
+
+map_cDNA_id <- transcript %>%
+  dplyr::group_by(gene_id) %>%
+  dplyr::select(gene_id,transcript_id)
+
+cyc_transcript <- genes_col%>%
+  dplyr::select(Gene.name = NAME) %>%
+  dplyr::mutate(
+    gene_id = drop_transcript_suffix(Gene.name),
+    transcript_id = gsub("\\..*","",Gene.name)) %>%
+  dplyr::filter(grepl("^Zm",.[,"Gene.name"]))
+
+id_map <- map_cDNA_id  %>%
+dplyr::left_join(cyc_transcript) %>%
+  dplyr::group_by(gene_id) %>%
+  dplyr::arrange(Gene.name, transcript_id) %>%
+  dplyr::slice(1)
+
+id_map$merge <- paste0(id_map$transcript_id,".1")
+id_map$merge[!is.na(id_map$Gene.name)] <- id_map$Gene.name[!is.na(id_map$Gene.name)]
+
+
+get_cyc_id <- function(gene_id){
+  data.frame(gene_id = gene_id) %>%
+    dplyr::left_join(id_map) %>%
+    dplyr::pull(merge)
 }
 
 
