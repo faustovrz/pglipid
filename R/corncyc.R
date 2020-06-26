@@ -1,7 +1,7 @@
 library(Biostrings)
 library(dplyr)
 
-config.yaml <- file.path('','Volumes', 'GoogleDrive','My\ Drive','repos','pglipid','extdata','config.yaml')
+config.yaml <- file.path('extdata','config.yaml')
 
 file.exists(config.yaml)
 configr::eval.config.sections(config.yaml)

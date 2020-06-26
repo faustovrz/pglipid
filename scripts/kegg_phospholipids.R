@@ -106,8 +106,6 @@ gene_models %>% length()
 
 write.csv( data.frame(gene = gene_models),
           file = file.path(
-            config$output$dir,
-            paste0("pglipid_candidates.csv")
-            ),
+            config$output$dir,"pglipid_candidates.csv"),
           quote = FALSE,
           row.names = FALSE)

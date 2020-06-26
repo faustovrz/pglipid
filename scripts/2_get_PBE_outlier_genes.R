@@ -2,100 +2,70 @@ library(dplyr)
 library(GenomicRanges)
 library(regioneR)
 library(liftOver)
+# 1. Initialize configuration ##################################################
+config.yaml <- file.path('extdata','config.yaml')
 
+file.exists(config.yaml)
+configr::eval.config.sections(config.yaml)
 
-# AGPv3 genome annotation ######################################################
-#
-# B73_RefGen_v3_Chr.bed
-# file with each chromosome start and end coordinates
-# this is useful for checking the genome version of the markers
-#
-# Modified from
-# ftp://ftp.ensemblgenomes.org/pub/plants/release-31/fasta/zea_mays/dna_index/Zea_mays.AGPv3.dna.toplevel.fa.gz.fai
+config <- configr::read.config(file = config.yaml)
 
-# Zea_mays.AGPv3.84_chr.gff3 gene annotation
-#
-# Modified from
-# ftp://ftp.ensemblgenomes.org/pub/release-31/plants/gff3/zea_mays/Zea_mays.AGPv3.84.gff3.gz
-#
-# annot <- rtracklayer::import('/ref/zea/Zea_mays.AGPv3.84.gff3')
-#
-# genes <- subset(annot,
-#                 type == "gene" &
-#                   biotype != "transposable_element" &
-#                   biotype != "pseudogene" &
-#                   seqnames %in% 1:10)
-#
-# Add chr to the filname
-#
-# rtracklayer::export(genes,
-#                     '/ref/zea/Zea_mays.AGPv3.84_chr.gff3',
-#                     format = "gff3")
+ref <-  configr::eval.config(
+  config = "ref",
+  file = config.yaml)
 
-AGPv3 <- regioneR::toGRanges('/ref/zea/B73_RefGen_v3_Chr.bed')
-seqlengths(AGPv3) <- width(AGPv3)
-genome(AGPv3 ) <- "AGPv3"
+input <- configr::eval.config(
+  config = "input",
+  file = config.yaml)
+
+output <- configr::eval.config(
+  config = "output",
+  file = config.yaml)
+
+analysis <- configr::eval.config(
+  config = "analysis",
+  file = config.yaml)
 
 
 
-
-# AGPv4 genome annotation #######################################################
-
-# ZmB73_RefGen_v4_Chr.bed
-# file with each chromosome start and end coordinates
-# this is useful for checking the genome version of the markers
-#
-# Modified from
-# ftp://ftp.ensemblgenomes.org/pub/plants/release-31/fasta/zea_mays/dna_index/Zea_mays.AGPv3.dna.toplevel.fa.gz.fai
-
-AGPv4 <- regioneR::toGRanges("/ref/zea/ZmB73_RefGen_v4_Chr.bed")
-seqlengths(AGPv4) <- width(AGPv4)
-genome(AGPv4 ) <- "AGPv4"
+################################################################################
 
 
-# Zea_mays.B73_RefGen_v4.41.chr.gff3 gene annotation
-#
-# Downloaded from
-# ftp://ftp.ensemblgenomes.org/pub/release-41/plants/gff3/zea_mays/Zea_mays.B73_RefGen_v4.41.chr.gff3.gz
-#
-#
-annot <- rtracklayer::import('/ref/zea/Zea_mays.B73_RefGen_v4.41.chr.gff3')
-
-
-
-genes <- subset(
-  annot,
-  type == "gene" &
-    biotype != "transposable_element" &
-    biotype != "pseudogene" &
-    seqnames %in% 1:10
-  ) + 10000 # + 10Kb upstream and downstream
-
-names(genes) <- genes$gene_id
+genes <- (
+  subset(
+  get_gene_annot( version = output$PBE$B73_version, organellar = FALSE),
+                  type    == "gene" &
+                  biotype != "transposable_element" &
+                  biotype != "pseudogene" # &
+  ) + 10000 ) %>%        # + 10Kb upstream and downstream
+  GenomicRanges::trim()
 
 
 # 1. Get genes corresponding to the 5% outlier SNPs  by population
 
-pbe_files <- c("SW_US.allPBE.txt",  "MexHigh.allPBE.txt",
-               "GuaHigh.allPBE.txt", "Andes.allPBE.txt")
-pops <- c("US","MH","GH","AN")
+pbe_files <-  input$PBE$files
+pops <- names(input$PBE$files)
 
 names(pbe_files) <- pops
 
-chain_file <- "/ref/zea/chain_files/AGPv3_to_B73_RefGen_v4.chain"
-ch <-import.chain(chain_file)
+chain_file <-  file.path(ref$chain_file$dir,
+                         ref$chain_file$AGPv3_AGPv4)
+
+ch <-rtracklayer::import.chain(chain_file)
 
 pbe_outlier <- data.frame( gene = genes$gene_id)
 gene_hits <- data.frame()
 outlier_hits <- data.frame()
 
 for (pop in pops) {
-  pbe_file <- file.path("PBE",pbe_files[pop])
+
+  pbe_file <- file.path(input$PBE$dir, pbe_files[pop])
+
   SNP <- GenomicRanges::makeGRangesFromDataFrame(
       read.delim(pbe_file, header = TRUE),
       keep.extra.columns = TRUE,
       ignore.strand = TRUE,
-      seqinfo = seqinfo(AGPv3),
+      seqinfo = get_chr_GR("AGPv3") %>% seqinfo(),
       seqnames.field = "CHROM",
       start.field = "POS",
       end.field = "POS"
@@ -103,13 +73,11 @@ for (pop in pops) {
     liftOver(ch) %>%
     unlist()
 
-  seqinfo(AGPv3)
-
   seqlevels(SNP) <- as.character(1:10)
-  seqinfo(SNP) <-  seqinfo(AGPv4)
+  seqinfo(SNP) <-  seqinfo(genes)
 
   # Find genes overlapping with top 5% SNPs (outliers) in this population
-  top <- 0.05
+  top <-  analysis$PBE$outlier$top
   thresh <- 1 - top
 
   outlier_SNP <- SNP[ SNP$PBE0 > quantile(SNP$PBE0, thresh)]
@@ -117,10 +85,13 @@ for (pop in pops) {
   with_outlier_SNP <- subjectHits(outlier_olap) %>% unique()
 
   write.csv( data.frame(
-            gene = genes$gene_id[with_outlier_SNP]),
-            file = paste0(pop,"_PBE_outlier_genes.csv"),
+            gene      = genes$gene_id[with_outlier_SNP]),
+            file      = file.path(
+                         output$dir,
+                         paste0(pop, output$PBE$outlier$suffix)
+                        ),
             row.names = FALSE,
-            quote = FALSE)
+            quote     = FALSE)
 
   pbe_outlier[pop] <- 0
   pbe_outlier[with_outlier_SNP,pop] <- 1
@@ -130,7 +101,10 @@ for (pop in pops) {
   bg_genes <- genes$gene_id[with_PBE_SNP]
 
   write.csv( data.frame(gene = bg_genes),
-             file = paste0(pop,"_PBE_bg_genes.csv"),
+             file = file.path(
+                      output$dir,
+                      paste0(pop, output$PBE$outlier$bg_suffix)
+                    ),
              row.names = FALSE,
              quote = FALSE)
 
@@ -140,18 +114,19 @@ for (pop in pops) {
        pop  = pop,
        chr  = seqnames(SNP)[queryHits(genic_olap)],
        pos  = start(SNP)[queryHits(genic_olap)],
-       gene = names(genes)[subjectHits(genic_olap)]
+       gene = genes$gene_id[subjectHits(genic_olap)]
        ) %>%
        dplyr::inner_join(
          as.data.frame(SNP),
-         by=c(chr= "seqnames",pos = "start")) %>%
+         by=c(chr= "seqnames", pos = "start")
+         ) %>%
        arrange(chr,pos)
     )
 
   outlier_hits <- rbind(
     outlier_hits,
     data.frame( pop     = pop,
-                gene    = names(genes)[with_outlier_SNP],
+                gene    = genes$gene_id[with_outlier_SNP],
                 outlier = 1)
     )
 
@@ -160,6 +135,8 @@ for (pop in pops) {
 
 # Get PBE statistics for genes in these populations----------------------------
 # this is really ugly but it  gets the results
+
+outlier_hits$gene %>% unique()
 
 pbe_outlier <- data.frame(gene = genes$gene_id) %>%
   dplyr::left_join(outlier_hits) %>%
@@ -180,16 +157,27 @@ pbe_outlier <- data.frame(gene = genes$gene_id) %>%
   #    dplyr::select(gene =gene_id, description)
   #   )
 
-write.csv(pbe_outlier,file ="pbe_outlier.csv", quote = FALSE, row.names = FALSE)
+write.csv(pbe_outlier,
+          file = file.path(output$dir,
+                           output$PBE$outlier$summary),
+          quote = FALSE, row.names = FALSE)
 
 
+
+quartz()
+pbe_outlier[pbe_outlier$sum >0,]
+nrow(pbe_outlier)
 pbe_outlier%>%
   dplyr::left_join(outlier_hits) %>%
   dplyr::group_by(pop,gene) %>%
-  dplyr::summarise(mean_PBE = mean(PBE), max_PBE = max(PBE),sum = max(sum)) %>%
-  ggplot2::ggplot(aes(x=factor(sum), y=max_PBE, fill=factor(pop))) +
-  ggplot2::geom_text(aes(color = factor(pop), label = shapes[factor(pop)]),
-                     position = position_jitterdodge()) +
+  # dplyr::summarise(mean_PBE = mean(PBE), max_PBE = max(PBE),sum = max(sum)) %>%
+  ggplot2::ggplot(  ggplot2::aes(x=factor(sum),
+                                 y=max_PBE,
+                                 color=factor(pop),
+                                 shape =max_PBE_pop
+                                )
+                    ) +
+  ggplot2::geom_point( position = ggplot2::position_jitterdodge()) +
   ggplot2::xlab("# Population Selected") +
   ggplot2::ylab("Max PBE") +
   ggpubr::theme_classic2()
@@ -204,24 +192,34 @@ set_m <- pbe_outlier[,c("gene",pops,"sum")] %>%
   tibble::column_to_rownames("gene") %>%
   as.matrix()
 
-
+source("R/upset_blue.R")
 # n <- length(names(genes))
-n <- length(testgeneID)
+n <- length(genes)
 Result <- SuperExactTest::supertest(SET_input(set_m) ,n=n, degree = 2:4)
-
+str(Result)
 pvalues <- Result$P.value
+# correct P values to e-320 when p = 0
 
-pdf(file = "Figure2_A_SET_style.pdf")
+pdf(file = file.path(
+              output$dir,
+              output$PBE$outlier$barplot
+            )
+    )
 plot(Result, Layout="landscape", sort.by="size", keep=FALSE)
 dev.off()
 
 
 # Blue plot
 
-pdf(file = "Figure2_A.pdf")
+# correct P values to e-320 when p = 0
+pdf(file = file.path(
+    output$dir,
+    output$PBE$outlier$bluebar
+  )
+)
+
 plot_blue(set_m, Result$P.value)
 dev.off()
-
 
 
 

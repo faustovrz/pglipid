@@ -1,16 +1,101 @@
 corncyc:
   source: 'https://ftp.maizegdb.org/MaizeGDB/FTP/MetabolicResources/CornCyc_install_files/CornCyc_8.0/corncyc8.0.tar.gz'
   dir:  '/ref/zea/corncyc/8.0/data'
-  pathways_col:   "pathways.col"
-  genes_col:     "genes.col"
-  enzymes_col:   "enzymes.col"
-  proteins_dat:  "proteins.dat"
-  reactions_dat: "reactions.dat"
-  genes_dat:     "genes.dat"
+  pathways_col:   'pathways.col'
+  genes_col:     'genes.col'
+  enzymes_col:   'enzymes.col'
+  proteins_dat:  'proteins.dat'
+  reactions_dat: 'reactions.dat'
+  genes_dat:     'genes.dat'
 #KEGG:
 ref:
-  xref: "/ref/zea/gene_model_xref_v3.txt"
-output:
-  dir:   '/Volumes/GoogleDrive/My Drive/repos/pglipid/extdata/output'
+  AGPv3:
+  # AGPv3 genome annotation ######################################################
+    bed:
+    # B73_RefGen_v3_Chr.bed
+    # file with each chromosome start and end coordinates
+    # this is useful for checking the genome version of the markers
+    #
+    # Modified from
+    # ftp://ftp.ensemblgenomes.org/pub/plants/release-31/fasta/zea_mays/dna_index/Zea_mays.AGPv3.dna.toplevel.fa.gz.fai
+    #
+    #TODO: Add R code to generate BED file. It should be easy. read.table() write.table()
+      source: 'ftp://ftp.ensemblgenomes.org/pub/plants/release-31/fasta/zea_mays/dna_index/Zea_mays.AGPv3.dna.toplevel.fa.gz.fai'
+      file:   '/ref/zea/B73_RefGen_v3_Chr.bed'
+    gff:
+    # Zea_mays.AGPv3.84_chr.gff3 gene annotation
+    #
+    # Modified from
+    # ftp://ftp.ensemblgenomes.org/pub/release-31/plants/gff3/zea_mays/Zea_mays.AGPv3.84.gff3.gz
+    #
+    # Maybe this should be its own function inn genome.R
+    # annot <- rtracklayer::import('/ref/zea/Zea_mays.AGPv3.84.gff3')
+    #
+    # genes <- subset(annot,
+    #                 type == "gene" &
+    #                   biotype != "transposable_element" &
+    #                   biotype != "pseudogene" &
+    #                   seqnames %in% 1:10)
+    #
+    # Add chr to the filname
+    #
+    # rtracklayer::export(genes,
+    #                     '/ref/zea/Zea_mays.AGPv3.84_chr.gff3',
+    #                     format = "gff3")
+      source: 'ftp://ftp.ensemblgenomes.org/pub/release-31/plants/gff3/zea_mays/Zea_mays.AGPv3.84.gff3.gz'
+      file:   '/ref/zea/Zea_mays.AGPv3.84_chr.gff3'
+    xref:
+      source: 'https://www.maizegdb.org/search/gene/download_gene_xrefs.php?relative=v3'
+      file:   '/ref/zea/gene_model_xref_v3.txt'
+  AGPv4:
+  # AGPv4 genome annotation ######################################################
+    bed:
+    # ZmB73_RefGen_v4_Chr.bed
+    # file with each chromosome start and end coordinates
+    # this is useful for checking the genome version of the markers
+    #
+    # Modified from
+      source: 'ftp://ftp.ensemblgenomes.org/pub/release-41/plants/fasta/zea_mays/dna_index/Zea_mays.B73_RefGen_v4.dna.toplevel.fa.gz.fai'
+      file:   '/ref/zea/ZmB73_RefGen_v4_Chr.bed'
+    gff:
+    # Zea_mays.B73_RefGen_v4.41.chr.gff3 gene annotation
+    #
+    # Downloaded from
+      source: 'ftp://ftp.ensemblgenomes.org/pub/release-41/plants/gff3/zea_mays/Zea_mays.B73_RefGen_v4.41.chr.gff3.gz'
+      file:   '/ref/zea/Zea_mays.B73_RefGen_v4.41.chr.gff3'
+    xref:
+      source: 'https://www.maizegdb.org/search/gene/download_gene_xrefs.php?relative=v4'
+      file:   '/ref/zea/gene_model_xref_v4.txt'
+  chain_file:
+    source: 'http://ftp.gramene.org/CURRENT_RELEASE/assembly_chain/zea_mays/'
+    dir: '/ref/zea/chain_files'
+    AGPv3_AGPv4: 'AGPv3_to_B73_RefGen_v4.chain'
+    AGPv2_AGPv4: 'AGPv2_to_B73_RefGen_v4.chain'
+input:
   PBE:
+    source:
+    dir: '/Users/fvrodriguez/Projects/NCSU/05_PLA1/PBE'
+    pops: ['US','MH','GH','AN']
+    files:
+      US: 'SW_US.allPBE.txt'
+      MH: 'MexHigh.allPBE.txt'
+      GH: 'GuaHigh.allPBE.txt'
+      AN: 'Andes.allPBE.txt'
+  PCAdapt:
+    source:
+    file:
+analysis:
+  PBE:
+    outlier:
+      top: 0.05
+output:
+  dir: 'extdata/output'
+  PBE:
+    B73_version: 'AGPv4'
+    outlier:
+      suffix:    '_PBE_outlier_genes.csv'
+      bg_suffix: '_PBE_bg_genes.csv'
+      summary:   'pbe_outlier_summary.csv'
+      barplot:   'Figure2_A_SET_style.pdf'
+      bluebar:   'Figure2_A.pdf'
   PCAdapt:
