@@ -1,4 +1,4 @@
-source("corncyc.R")
+source("R/corncyc.R")
 library(dplyr)
 library(KEGGREST)
 

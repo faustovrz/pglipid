@@ -59,10 +59,10 @@ add <- "PWY-6825"
 
 
 curated_candidates <- corncyc_classify(candidates) %>%
-  dplyr::filter(cover == 1) %>%
+  dplyr::filter(cover == 1) %>%               # Filter to candidate pathways
   dplyr::filter(!Pathway.id %in% remove) %>%  # manually remove pathways
-  dplyr::select(Pathway.id) %>%               # manually add pathways
-  dplyr::add_row(Pathway.id = add) %>%
+  dplyr::select(Pathway.id) %>%
+  dplyr::add_row(Pathway.id = add) %>%        # manually add pathways
   dplyr::inner_join(corncyc_pathway) %>%
   dplyr::select(Gene.name) %>%
   dplyr::filter(Gene.name != "unknown") %>%
@@ -75,7 +75,8 @@ curated_candidates
 curated_candidates <- curated_candidates[!is.na(curated_candidates)]
 corncyc_classify(curated_candidates) %>% print(n = 60)
 
-gene_models <- union(union(hits$zma00561, hits$zma00561),  drop_transcript_suffix(curated_candidates))
+gene_models <- union(union(hits$zma00561, hits$zma00561),
+                     drop_transcript_suffix(curated_candidates))
 gene_models <- gene_models[!is.na(gene_models)]
  corncyc_pathway
 

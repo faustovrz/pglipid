@@ -1,3 +1,21 @@
+config.yaml <- file.path('config.yaml')
+
+file.exists(config.yaml)
+configr::eval.config.sections(config.yaml)
+
+config <- configr::read.config(file = config.yaml)
+
+ref <-  configr::eval.config(
+  config = "ref",
+  file = config.yaml)
+
+input <- configr::eval.config(
+  config = "input",
+  file = config.yaml)
+
+output <- configr::eval.config(
+  config = "output",
+  file = config.yaml)
 
 get_entrez_from_pathway <- function(pathway_name, sp = "zma"){
 
@@ -24,7 +42,7 @@ get_entrez_from_pathway <- function(pathway_name, sp = "zma"){
 }
 
 
-xref <- read.table(config$ref$xref, sep = "\t", header = TRUE, na.strings = "")
+xref <- read.table(ref$AGPv4$xref$file, sep = "\t", header = TRUE, na.strings = "")
 
 
 get_cyc_xrefs <- function(entrez_ids){

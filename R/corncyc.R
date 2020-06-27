@@ -1,7 +1,6 @@
-library(Biostrings)
-library(dplyr)
+config.yaml <- file.path('config.yaml')
 
-config.yaml <- file.path('extdata','config.yaml')
+system.file('extdata','config.yaml', package = "pglipid", mustWork= TRUE)
 
 file.exists(config.yaml)
 configr::eval.config.sections(config.yaml)
@@ -12,11 +11,44 @@ corncyc <-  configr::eval.config(
   config = "corncyc",
   file = config.yaml)
 
+ref <-  configr::eval.config(
+  config = "ref",
+  file = config.yaml)
+
+input <- configr::eval.config(
+  config = "input",
+  file = config.yaml)
+
+output <- configr::eval.config(
+  config = "output",
+  file = config.yaml)
+
+#' @title Make cyc file paths from configuaration keys
+#' @description  Make cyc file paths from configuaration keys
+#' @details
+#' @param input Biocyc col file
+#'
+#' @export
 cyc_file <- function(x){
   file.path(corncyc$dir,corncyc[x])
 }
 
 
+
+#' @title Read Biocyc col report tables
+#' @description The col files are tab delimited files representing info in data files
+#' @details
+#' @param input Biocyc col file
+#'
+#' @export
+#' @return a dataframe. Note that many column names are serialized because
+#'                      they are different values for a common key in dat files
+#'
+#' @examples
+#' \dontrun{
+#' read_col("proteins.dat")
+#' }
+#'
 read_col <- function(input = NULL) {
   if ( cyc_file(input) %>% file.exists()) {
     input <- cyc_file(input)
@@ -30,233 +62,22 @@ read_col <- function(input = NULL) {
     na.strings = "")
 }
 
-
-read_dat <- function(input = NULL){
-input = "proteins_dat"
-  if ( file.exists(cyc_file(input))) {
-    input <- cyc_file(input)
-  }
-
-  dat <- readLines(input, encoding = "UTF-8") %>%
-    gsub("^ +", "", .,) %>%          # remove leading spaces
-    gsub(" +$", "", .,)              # remove trailing spaces
-
-  dat <- dat[!grepl("^#|^/$", dat)]  # remove pound comments,
-                                     # and single slash lines
-  dat <- paste(
-    iconv(dat,
-          from="UTF-8",              # changing the damn encoding
-          to = "UTF-8"),             # from UTF8 to UTF8 because of BOM?
-    collapse = "\n"
-  )  %>%
-    gsub("\\.\n/?=[^/]",             # Multiple COMMENT values start with /
-         "\\.\nCOMMENT - ",
-         ., perl = TRUE) %>%
-    strsplit("^//\n|\n//\n") %>%     # Chunks split by \n//\n
-    unlist()                         # str_split returns a list
-
-  dat <- lapply(dat, FUN = function(x) strsplit(x,"\n") %>% unlist())
-  names(dat) <- gsub("UNIQUE-ID - ", "",
-                     sapply(dat, "[[", 1))
-  out <- list()
-
-  for( name in names(dat)){
-    key_val  <- strsplit(dat[[name]], " - ")  #  " - " delimits key from value
-    val <-  sapply(key_val, "[", 2)           #  retrieve values
-    names(val) <- sapply(key_val,"[", 1)      #  retrieve keys
-    out[[name]] <- val
-  }
-
-  return(out)
-}
-
-add_transcript_version<-function(x){
-  # Well, there are no other versions other than 1
-  # I checked:
-  # Zm <- corncyc_pathway$Gene.name[grep("Zm",corncyc_pathway$Gene.name)]
-  # Zm.ver <- gsub(".*\\.","",Zm) %>% as.integer()
-  # table(Zm.ver)
-  # Zm.ver
-  # 1
-  # 9120
-  paste(x,1, sep = '.' )
-
-}
-
-
-drop_transcript_suffix <- function(x) {
-  gsub("_[TP]\\d\\d.*", "", x)
-}
-
-
-pathways_col <- read_col("pathways_col")
-genes_col <- read_col("genes_col")
-genes_col$v4_gene_model <- drop_transcript_suffix(genes_col$NAME)
-
-xref <- read.table(config$ref$xref, sep = "\t", header = TRUE, na.strings = "")
-
-
-corncyc_pathway <-   pathways_col %>%
-  # pivot GENE.ID
-  dplyr::select(UNIQUE.ID, NAME, starts_with("GENE.ID")) %>%
-  tidyr::pivot_longer(
-    cols = starts_with("GENE.ID"),
-    values_to = "Gene.id",
-    values_drop_na = TRUE
-  ) %>%
-  dplyr::select(-name) %>%
-  dplyr::rename(Pathway.id = UNIQUE.ID, Pathway.name = NAME) %>%
-  dplyr::left_join(
-    genes_col %>%
-      dplyr::select(Gene.id = UNIQUE.ID, Gene.name = NAME)
-  ) %>%
-  dplyr::mutate( v4_gene_model = drop_transcript_suffix(Gene.name))
-
-
-
-# genes_dat <- read_dat("genes_dat")
-
-corncyc_gene_synonym <- genes_col %>%
-  # pivot synonym
-  dplyr::select( UNIQUE.ID,NAME, dplyr::starts_with("SYNONYM")) %>%
-  tidyr::pivot_longer(
-    cols = dplyr::starts_with("SYNONYM"),
-    values_to = "Synonym",
-    values_drop_na = TRUE) %>%
-  dplyr::select(-name) %>%
-  dplyr::rename(Gene.id = UNIQUE.ID) %>%
-  dplyr::arrange( Synonym)
-
-# pin1 has no associated transcript!!!!!
-#
-# genes_dat[["GDQC-114725"]]
-#
-#                                                             COMMON-NAME
-#                                                                  "pin1"
-#                                                             ACCESSION-1
-#                                                                   "NIL"
-#                                                             ACCESSION-2
-#                                                                   "NIL"
-#                                                                 DBLINKS
-# "(ENSEMBL-PROTEIN \"ARRAY(0x17998d8)\" NIL |zhang| 3701270650 NIL NIL)"
-#                                                                 DBLINKS
-#        "(MAIZEGDB \"ARRAY(0x27fd8e8)\" NIL |zhang| 3701270582 NIL NIL)"
-#
-# But I do know that it is  Zm00001d044812
-# This is an error in the database curation
-# I do not know if it is worth trying to curate the table or the dat file
-# probably in version 9 this is fixed
-
-# with(genes_col, genes_col[UNIQUE.ID == "GDQC-114725",])
-# with(genes_col, genes_col[grepl("Zm00001d044812", NAME),])
-# sum(grepl("Zm00001d044812",genes_col$NAME))
-
-
-# corncyc_pathway %>%
-#   dplyr::group_by(Pathway.id) %>%
-#   dplyr::summarize(n = length(Gene.id)) %>%
-#   dplyr::arrange(-n)
-
-
-enzymes_col <- read_col("enzymes_col")
-
-cyc_enz_sub <- enzymes_col %>%
-  dplyr::select(UNIQUE.ID,Subunit = SUBUNIT.COMPOSITION) %>%
-  dplyr::mutate(Subunit = gsub("\\d\\*|,\\d\\*","", Subunit)) %>%
-  tidyr::separate_rows(Subunit, sep = ",",  convert = TRUE)
-
-enz_rxn_path <- enzymes_col %>%
-  dplyr::select( ENZRXN = UNIQUE.ID, dplyr::starts_with("PATHWAYS")) %>%
-  tidyr::pivot_longer(
-    cols = dplyr::starts_with("PATHWAYS"),
-    values_to = "Pathway.id",
-    values_drop_na = TRUE) %>%
-  dplyr::select(-name) %>%
-  dplyr::left_join(
-    enzymes_col %>%
-      dplyr::select(ENZRXN = UNIQUE.ID, Protein.id = SUBUNIT.COMPOSITION) %>%
-      dplyr::mutate(Protein.id = gsub("\\d\\*|,\\d\\*","", Protein.id)) %>%
-      tidyr::separate_rows(Protein.id, sep = ",",  convert = TRUE)
-  ) %>%
-  dplyr::mutate(
-    Gene.id = gsub("-MONOMER","",Protein.id)
-  )
-
-
-
-proteins_dat <- read_dat("proteins_dat")
-
-enz_rxn <-NULL
-
-enz_rxn <- lapply(proteins_dat, function(x){
-
-          catalyzes <- x[names(x) == "CATALYZES"]
-          if(length(catalyzes) == 0){
-            ENZRXN <- NA
-          } else{
-            ENZRXN <- catalyzes
-          }
-
-         genes <- x[names(x) == "GENE"]
-         if(length(genes) == 0){
-           GENE <- NA
-         } else{
-           GENE <- genes
-         }
-
-       data.frame(
-        Protein.id = x["UNIQUE-ID"],
-        Gene.id    = GENE,
-        ENZRXN     = ENZRXN
-       )
-     }
-  ) %>% dplyr::bind_rows()
-
-rownames(enz_rxn) <- NULL
-
-colnames(enz_rxn)
-orphan_enz <- enz_rxn %>%
-  dplyr::left_join(enz_rxn_path) %>%
-  dplyr::group_by(Protein.id) %>%
-  dplyr::filter(all(is.na(Pathway.id))) %>%
-  unique()
-
-# reactions_dat <- read_dat("reactions_dat")
-
-# reactions_dat <-NULL
+load(file.path('data','corncyc_pathway.rda'))
 
 pathway_n <- corncyc_pathway %>%
   dplyr::pull(Gene.id) %>%
   unique %>% length()
 
-
+genes_col <- read_col("genes_col")
 gene_n <- nrow(genes_col)
 # gene_n <- length(names(corncyc_seq))
 
 unassined_n <-  gene_n - pathway_n
 
-colnames(corncyc_pathway)
-
-
-test_count <- function(test_genes) {
-  gene_ids <- test_genes %>%
-              as.data.frame()
-  colnames(gene_ids)[1] <- "Gene.name"
-  test_count <-  gene_ids %>%
-    dplyr::left_join(corncyc_pathway) %>%
-    dplyr::group_by(Pathway.id,Pathway.name) %>%
-    dplyr::summarise(n_test = length(Gene.name)) %>%
-    dplyr::arrange(-n_test)
-
-    test_count[is.na(test_count)] <-"unassigned"
-    test_count
-    }
-
 cyc_count <- corncyc_pathway %>%
   dplyr::group_by(Pathway.id,Pathway.name) %>%
   dplyr::filter(Gene.name != "unknown")  %>%
   dplyr::summarise(n = length(Gene.name))
-
 
 
 cyc_test <- function(test_genes) {
@@ -269,6 +90,21 @@ cyc_test <- function(test_genes) {
   #   n[Pathway.name == "unassigned"] <- unassined_n
   #   cover <- n_test/n
   #   })
+}
+
+
+test_count <- function(test_genes) {
+  gene_ids <- test_genes %>%
+    as.data.frame()
+  colnames(gene_ids)[1] <- "Gene.name"
+  test_count <-  gene_ids %>%
+    dplyr::left_join(corncyc_pathway) %>%
+    dplyr::group_by(Pathway.id,Pathway.name) %>%
+    dplyr::summarise(n_test = length(Gene.name)) %>%
+    dplyr::arrange(-n_test)
+
+  test_count[is.na(test_count)] <-"unassigned"
+  test_count
 }
 
 
@@ -292,20 +128,20 @@ corncyc_classify <- function(test_genes, bg = NULL){
     if (! all(test_genes %in% bg)){
       stop(paste("Test genes absent from background:",
                  test_genes[!test_genes %in% bg])
-           )
+      )
     }
     sum_total <- length(bg)
   }
 
 
   fisher <- apply(cyc_test[3:5],1, FUN = function(x){
-      if(any(is.na(x))){ return(c(NA,NA)) }
-      else {
-        m <- c(x["n_test"]            , x["n"] - x["n_test"],
-               sum_test - x["n_test"] , sum_total - sum_test +  x["n_test"] - x["n"] ) %>%
-          matrix( ncol =2, nrow = 2) %>% t()
-        f <- fisher.test(m, alternative="greater")
-        c(f$p.value, f$estimate)}
+    if(any(is.na(x))){ return(c(NA,NA)) }
+    else {
+      m <- c(x["n_test"]            , x["n"] - x["n_test"],
+             sum_test - x["n_test"] , sum_total - sum_test +  x["n_test"] - x["n"] ) %>%
+        matrix( ncol =2, nrow = 2) %>% t()
+      f <- fisher.test(m, alternative="greater")
+      c(f$p.value, f$estimate)}
   }) %>% t()
   colnames(fisher) <- c("p_value", "odds_ratio")
 
@@ -319,42 +155,9 @@ corncyc_classify <- function(test_genes, bg = NULL){
 }
 
 
-transcript <- subset(annot,
-                     type == "mRNA" &
-                     biotype != "transposable_element" &
-                     biotype != "pseudogene" &
-                     seqnames %in% 1:10) %>%
-              as.data.frame()
-
-transcript$gene_id <- drop_transcript_suffix(transcript$transcript_id)
-
-
-map_cDNA_id <- transcript %>%
-  dplyr::group_by(gene_id) %>%
-  dplyr::select(gene_id,transcript_id)
-
-cyc_transcript <- genes_col%>%
-  dplyr::select(Gene.name = NAME) %>%
-  dplyr::mutate(
-    gene_id = drop_transcript_suffix(Gene.name),
-    transcript_id = gsub("\\..*","",Gene.name)) %>%
-  dplyr::filter(grepl("^Zm",.[,"Gene.name"]))
-
-id_map <- map_cDNA_id  %>%
-dplyr::left_join(cyc_transcript) %>%
-  dplyr::group_by(gene_id) %>%
-  dplyr::arrange(Gene.name, transcript_id) %>%
-  dplyr::slice(1)
-
-id_map$merge <- paste0(id_map$transcript_id,".1")
-id_map$merge[!is.na(id_map$Gene.name)] <- id_map$Gene.name[!is.na(id_map$Gene.name)]
-
 
 get_cyc_id <- function(gene_id){
   data.frame(gene_id = gene_id) %>%
     dplyr::left_join(id_map) %>%
     dplyr::pull(merge)
 }
-
-
-
