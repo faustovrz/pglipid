@@ -17,15 +17,16 @@ print(ls())
 make_pathways_col <- function()(
   if(!exists("pathways_col")) {
 
-    print("pathways_col not found!")
-
     return(
       read_col(
         file.path(config$corncyc$dir,
                   config$corncyc$pathways_col)
       )
     )
-  }else{
+  }else if(exists("pglipid::pathways_col")) {
+    print("pathways_col not found 2!")
+    return(pglipid::pathways_col)
+  } else{
     return(pathways_col)
   }
 
