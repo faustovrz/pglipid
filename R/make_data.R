@@ -13,21 +13,53 @@ if(file.exists(internal_data)){
 }
 
 
-pathways_col <- read_col(
-  file.path(config$corncyc$dir,
-            config$corncyc$pathways_col)
+make_pathways_col <- function(ref)(
+  if(!exists("pathways_col")) {
+    return(
+      read_col(
+        file.path(config$corncyc$dir,
+                  config$corncyc$pathways_col)
+      )
+    )
+  }else{
+    return(pathways_col)
+  }
+
 )
 
-genes_col <- read_col(
-  file.path(config$corncyc$dir,
-            config$corncyc$genes_col)
+
+pathways_col <-  make_pathways_col()
+
+
+make_genes_col <- function(ref)(
+  if(!exists("genes_col")) {
+    return(
+      read_col(
+        file.path(config$corncyc$dir,
+                  config$corncyc$genes_col)
+      )
+    )
+  }else{
+    return(genes_col)
+  }
+
 )
+
+genes_col <- make_genes_col()
 
 genes_col$v4_gene_model <- drop_transcript_suffix(genes_col$NAME)
 
-xref <- read.table(ref$AGPv4$xref$file,
-                   sep = "\t", header = TRUE, na.strings = "")
 
+
+make_xref <- function()(
+  if(!exists("xref")){
+    return(
+    read.table(ref$AGPv4$xref$file,
+                       sep = "\t", header = TRUE, na.strings = "")
+    )
+  }
+
+)
 
 make_corncyc_pathway <- function(overwrite = FALSE){
 

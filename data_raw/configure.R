@@ -19,6 +19,9 @@ configure(config_file = config_file, overwrite = TRUE)
 
 source(make_data_R)
 
+pathways_col    <- make_pathways_col()
+genes_col       <- make_genes_col()
+xref            <- make_xref()
 corncyc_pathway <- make_corncyc_pathway()
 gene_synonym    <- make_corncyc_gene_synonym()
 enz_rxn_path    <- make_enz_rxn_path()
@@ -27,6 +30,9 @@ orphan_enz      <- make_orphan_enz( enz_rxn, enz_rxn_path)
 map_id          <- make_map_id()
 
 usethis::use_data(
+  pathways_col,
+  genes_col,
+  xref,
   corncyc_pathway,
   gene_synonym,
   enz_rxn_path,
