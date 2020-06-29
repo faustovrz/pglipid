@@ -1,7 +1,7 @@
 get_entrez_from_pathway <- function(pathway_name, sp = "zma"){
 
   if(length(pathway_name) != 1){
-    stop("Pathway name must be character(1)")
+    stop("Pathway name must be character vector of length 1")
   }
   sp_pathway <- KEGGREST::keggList("pathway",sp)
   is_pathway <- grepl(pathway_name,sp_pathway)
@@ -14,14 +14,13 @@ get_entrez_from_pathway <- function(pathway_name, sp = "zma"){
   }
   pathway <- KEGGREST::keggGet(path_code)
   record_lines <- length(pathway[[1]]$GENE)
-  entrez <- pathway[[1]]$GENE[c(TRUE,FALSE)] # selecting every other line
+  entrez <- pathway[[1]]$GENE[c(TRUE, FALSE)] # selecting every other line
   return(
     list(name    = pathway[[1]]$PATHWAY_MAP,
          entry   = pathway[[1]]$ENTRY,
          entrez  = entrez %>% as.integer())
   )
 }
-
 
 
 

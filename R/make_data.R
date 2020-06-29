@@ -1,82 +1,68 @@
 # The configuration is stored at "sysdata.rda"
 
 # install directory from R studio: /R/library/path/pglipid
-internal_data <- file.path("R","sysdata.rda")
-if(file.exists(internal_data)){
-  print("Loading rda...\n")
-  print(list.files(file.path("R")))
-  load(internal_data)
-}
+#internal_data <- file.path("R","sysdata.rda")
+# if(file.exists(internal_data)){
+#   print("Loading rda...\n")
+#   print(list.files(file.path("data")))
+#   load(internal_data)
+# }
 
 # install directory from R studio: /source/path/pglipid
-internal_data <- file.path("..","R","sysdata.rda")
-if(file.exists(internal_data)){
+# internal_data <- file.path("..","R","sysdata.rda")
+# if(file.exists(internal_data)){
+#   print("Loading rda...\n")
+#   lf <- list.files(file.path("..","data"))
+#   lapply(lf,load)
+#   load(internal_data)
+# }
 
-  print("Loading rda...\n")
-  list.files(file.path("..","R"))
-  load(internal_data)
-
-}
-
-print("pathways_col not found!")
-print(ls())
-
-make_pathways_col <- function(){
-  if(exists("pglipid::pathways_col")) {
-    print("pathways_col found in rda!")
-    return(pglipid::pathways_col)
-  }else if (!exists("pathways_col")) {
-     print("pathways_col not found 1!")
-     return(
-       read_col(
-         file.path(config$corncyc$dir,
-                   config$corncyc$pathways_col)
-       )
-     )
-  } else if (exists("pathways_col")){
-    return(pathways_col)
-  }
-
-}
-
-
-
-pathways_col <-  make_pathways_col()
-print("pathways_col not found 2!")
-
-make_genes_col <- function(ref)(
-  if(!exists("genes_col")) {
+make_pathways_col <- function(config){
     return(
-      read_col(
-        file.path(config$corncyc$dir,
-                  config$corncyc$genes_col)
+    read_col(
+      file.path(config$corncyc$dir,
+                config$corncyc$pathways_col)
       )
     )
-  }else{
-    return(genes_col)
-  }
-
-)
-
-genes_col <- make_genes_col()
-
-genes_col$v4_gene_model <- drop_transcript_suffix(genes_col$NAME)
+}
 
 
 
-make_xref <- function()(
+make_genes_col <- function(config){
+  return(
+    read_col(
+      file.path(config$corncyc$dir,
+                config$corncyc$genes_col)
+    )
+  )
+}
+
+make_enzymes_col <- function(config){
+  return(
+    read_col(
+    file.path(config$corncyc$dir,
+              config$corncyc$enzymes_col)
+    )
+  )
+}
+
+
+make_xref <- function(config)(
   if(!exists("xref")){
     return(
-    read.table(ref$AGPv4$xref$file,
-                       sep = "\t", header = TRUE, na.strings = "")
+    read.table(config$ref$AGPv4$xref$file,
+               sep = "\t",
+               header = TRUE,
+               na.strings = "")
     )
   }
 
 )
 
-make_corncyc_pathway <- function(overwrite = FALSE){
+make_corncyc_pathway <- function(genes_col, pathways_col){
+  genes_col$v4_gene_model <- drop_transcript_suffix(genes_col$NAME)
 
-  corncyc_pathway <-   pathways_col %>%
+  corncyc_pathway <- pathways_col %>%
     # pivot GENE.ID
     dplyr::select(UNIQUE.ID, NAME, starts_with("GENE.ID")) %>%
     tidyr::pivot_longer(
@@ -98,7 +84,7 @@ make_corncyc_pathway <- function(overwrite = FALSE){
 
 # genes_dat <- read_dat("genes_dat")
 
-make_corncyc_gene_synonym <- function(){
+make_corncyc_gene_synonym <- function(genes_col){
   # pin1 has no associated transcript!!!!!
   #
   # genes_dat[["GDQC-114725"]]
@@ -138,9 +124,6 @@ make_corncyc_gene_synonym <- function(){
 }
 
 
-
-
-
 # corncyc_pathway %>%
 #   dplyr::group_by(Pathway.id) %>%
 #   dplyr::summarize(n = length(Gene.id)) %>%
@@ -148,11 +131,7 @@ make_corncyc_gene_synonym <- function(){
 
 
 
-make_enz_rxn_path  <- function(){
-  enzymes_col <- read_col(
-    file.path(config$corncyc$dir,
-              config$corncyc$enzymes_col)
-  )
+make_enz_rxn_path  <- function(enzymes_col){
 
   cyc_enz_sub <- enzymes_col %>%
     dplyr::select(UNIQUE.ID,Subunit = SUBUNIT.COMPOSITION) %>%
@@ -179,15 +158,16 @@ make_enz_rxn_path  <- function(){
  return(enz_rxn_path)
 }
 
-
-
-make_enz_rxn <- function(overwrite = FALSE){
+make_proteins_dat <- function(config){
+return(
   proteins_dat <- read_dat(
     file.path(config$corncyc$dir,
               config$corncyc$proteins_dat)
   )
+)
+}
 
-  enz_rxn <-NULL
+make_enz_rxn <- function(proteins_dat){
 
   enz_rxn <- lapply(proteins_dat, function(x){
 
@@ -219,10 +199,7 @@ make_enz_rxn <- function(overwrite = FALSE){
 
 
 
-make_orphan_enz <- function(enz_rxn = NULL, enz_rxn_path = NULL){
-  if(is.null(enz_rxn) | is.null(enz_rxn)){
-    stop("You must provide tables")
-  }
+make_orphan_enz <- function(enz_rxn, enz_rxn_path){
   orphan_enz <- enz_rxn %>%
     dplyr::left_join(enz_rxn_path) %>%
     dplyr::group_by(Protein.id) %>%
@@ -239,10 +216,11 @@ make_orphan_enz <- function(enz_rxn = NULL, enz_rxn_path = NULL){
 
 
 
-make_map_id <- function(version = "AGPv4"){
+make_map_id <- function(version = "AGPv4", config){
 
   transcript <- get_gene_annot( version = version,
-                                organellar = FALSE) %>%
+                                organellar = FALSE,
+                                config) %>%
     subset(type == "mRNA")
 
   print("Mapping transcript ids (Zm...) to corncyc Zm..._TXXX.1) ")
@@ -279,7 +257,3 @@ make_map_id <- function(version = "AGPv4"){
 
   return(id_map)
 }
-
-
-
-

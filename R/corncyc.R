@@ -1,14 +1,14 @@
 # The configuration is stored at "sysdata.rda"
-
-internal_data <- file.path("R","sysdata.rda")
-if(file.exists(internal_data)){
-  load(internal_data)
-}
-
-internal_data <- file.path("..","R","sysdata.rda")
-if(file.exists(internal_data)){
-  load(internal_data)
-}
+#
+# internal_data <- file.path("R","sysdata.rda")
+# if(file.exists(internal_data)){
+#   load(internal_data)
+# }
+#
+# internal_data <- file.path("..","R","sysdata.rda")
+# if(file.exists(internal_data)){
+#   load(internal_data)
+# }
 
 #' @title Read Biocyc col report tables
 #' @description The col files are tab delimited files representing info in data files
@@ -38,7 +38,7 @@ read_col <- function(input = NULL) {
 
 cyc_test <- function(test_genes) {
 
-  cyc_count <- pglipid::corncyc_pathway %>%
+  cyc_count <- corncyc_pathway %>%
     dplyr::group_by(Pathway.id,Pathway.name) %>%
     dplyr::filter(Gene.name != "unknown")  %>%
     dplyr::summarise(n = length(Gene.name))
@@ -60,7 +60,7 @@ test_count <- function(test_genes) {
     as.data.frame()
   colnames(gene_ids)[1] <- "Gene.name"
   test_count <-  gene_ids %>%
-    dplyr::left_join(pglipid::corncyc_pathway) %>%
+    dplyr::left_join(corncyc_pathway) %>%
     dplyr::group_by(Pathway.id, Pathway.name) %>%
     dplyr::summarise(n_test = length(Gene.name)) %>%
     dplyr::arrange(-n_test)
@@ -72,18 +72,18 @@ test_count <- function(test_genes) {
 
 corncyc_classify <- function(test_genes, bg = NULL){
 
-  pathway_n <- pglipid::corncyc_pathway %>%
+  pathway_n <- corncyc_pathway %>%
     dplyr::pull(Gene.id) %>%
     unique %>% length()
 
-  gene_n <- nrow(pglipid::genes_col)
+  gene_n <- nrow(genes_col)
   # gene_n <- length(names(corncyc_seq))
 
   unassined_n <-  gene_n - pathway_n
 
   sum_test <- length(test_genes)
   cyc_test <- cyc_test(test_genes)
-  cyc_genes <-  pglipid::corncyc_pathway %>%
+  cyc_genes <-  corncyc_pathway %>%
     dplyr::filter(Pathway.id %in% cyc_test$Pathway.id) %>%
     dplyr::filter(Gene.name != "unknown") %>%
     dplyr::select(Gene.name) %>%
@@ -129,6 +129,6 @@ corncyc_classify <- function(test_genes, bg = NULL){
 
 get_cyc_id <- function(gene_id){
   data.frame(gene_id = gene_id) %>%
-    dplyr::left_join(pglipid::id_map) %>%
+    dplyr::left_join(id_map) %>%
     dplyr::pull(merge)
 }

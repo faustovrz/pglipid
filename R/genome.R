@@ -1,18 +1,17 @@
 # The configuration is stored at "sysdata.rda"
 
-internal_data <- file.path("R","sysdata.rda")
-if(file.exists(internal_data)){
-  load(internal_data)
-}
+# internal_data <- file.path("R","sysdata.rda")
+# if(file.exists(internal_data)){
+#   load(internal_data)
+# }
+#
+# internal_data <- file.path("..","R","sysdata.rda")
+# if(file.exists(internal_data)){
+#   load(internal_data)
+# }
 
-internal_data <- file.path("..","R","sysdata.rda")
-if(file.exists(internal_data)){
-  load(internal_data)
-}
 
-
-
-get_chr_GR<- function (version = "AGPv4"){
+get_chr_GR<- function (version = "AGPv4", config){
 
   chr_bed  <- config$ref[[version]]$bed$file
 
@@ -27,9 +26,9 @@ get_chr_GR<- function (version = "AGPv4"){
 
 
 
-get_gene_annot<- function( version = "AGPv4", organellar = FALSE){
+get_gene_annot<- function( version = "AGPv4", organellar = FALSE, config){
   gff_file <- config$ref[[version]]$gff$file
-  chr <- get_chr_GR(version)
+  chr <- get_chr_GR(version, config)
   genes <- rtracklayer::import(gff_file)
 
   if(organellar == FALSE){
