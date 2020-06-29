@@ -4,12 +4,14 @@
 internal_data <- file.path("R","sysdata.rda")
 if(file.exists(internal_data)){
   load(internal_data)
+  print("Loading rda...\n")
 }
 
 # install directory from R studio: /source/path/pglipid
 internal_data <- file.path("..","R","sysdata.rda")
 if(file.exists(internal_data)){
   load(internal_data)
+  print("Loading rda...\n")
 }
 
 print("pathways_col not found!")
@@ -17,7 +19,7 @@ print(ls())
 
 make_pathways_col <- function(){
   if(exists("pglipid::pathways_col")) {
-    print("pathways_col not found in rda!")
+    print("pathways_col found in rda!")
     return(pglipid::pathways_col)
   }else if (!exists("pathways_col")) {
      print("pathways_col not found 1!")
