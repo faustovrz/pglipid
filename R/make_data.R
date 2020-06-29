@@ -13,7 +13,7 @@ if(file.exists(internal_data)){
 }
 
 print("pathways_col not found!")
-
+ls()
 make_pathways_col <- function()(
   if(!exists("pathways_col")) {
 
