@@ -15,6 +15,7 @@ if(file.exists(internal_data)){
 
 make_pathways_col <- function()(
   if(!exists("pathways_col")) {
+    "pathways_col not found!"
     return(
       read_col(
         file.path(config$corncyc$dir,
