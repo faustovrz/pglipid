@@ -13,7 +13,7 @@ if(file.exists(internal_data)){
 }
 
 
-make_pathways_col <- function(ref)(
+make_pathways_col <- function()(
   if(!exists("pathways_col")) {
     return(
       read_col(
