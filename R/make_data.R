@@ -16,7 +16,9 @@ print("pathways_col not found!")
 
 make_pathways_col <- function()(
   if(!exists("pathways_col")) {
+
     print("pathways_col not found!")
+
     return(
       read_col(
         file.path(config$corncyc$dir,
