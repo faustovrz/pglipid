@@ -23,14 +23,13 @@ get_entrez_from_pathway <- function(pathway_name, sp = "zma"){
 }
 
 
-xref <- read.table(ref$AGPv4$xref$file, sep = "\t", header = TRUE, na.strings = "")
 
 
 get_cyc_xrefs <- function(entrez_ids){
   data.frame (
     Entrez =  entrez_ids
   ) %>%
-    dplyr::left_join(xref) %>%
+    dplyr::left_join(pglipid::xref) %>%
     dplyr::select( Entrez, v4_gene_model) %>%
     dplyr::left_join(corncyc_pathway) %>%
     dplyr::select(Entrez, v4_gene_model, Gene.id, Gene.name) %>%
