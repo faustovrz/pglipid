@@ -36,16 +36,6 @@ read_col <- function(input = NULL) {
 
 
 
-
-genes_col <- read_col(
-  file.path(
-    config$corncyc$dir,
-    config$corncyc$genes_col
-  )
-)
-
-
-
 cyc_test <- function(test_genes) {
 
   cyc_count <- pglipid::corncyc_pathway %>%
@@ -86,14 +76,14 @@ corncyc_classify <- function(test_genes, bg = NULL){
     dplyr::pull(Gene.id) %>%
     unique %>% length()
 
-  gene_n <- nrow(genes_col)
+  gene_n <- nrow(pglipid::genes_col)
   # gene_n <- length(names(corncyc_seq))
 
   unassined_n <-  gene_n - pathway_n
 
   sum_test <- length(test_genes)
   cyc_test <- cyc_test(test_genes)
-  cyc_genes <-  corncyc_pathway %>%
+  cyc_genes <-  pglipid::corncyc_pathway %>%
     dplyr::filter(Pathway.id %in% cyc_test$Pathway.id) %>%
     dplyr::filter(Gene.name != "unknown") %>%
     dplyr::select(Gene.name) %>%
