@@ -14,24 +14,24 @@ if(file.exists(internal_data)){
 
 print("pathways_col not found!")
 print(ls())
-make_pathways_col <- function()(
-  if(!exists("pathways_col")) {
-    print("pathways_col not found 1!")
-    return(
-      read_col(
-        file.path(config$corncyc$dir,
-                  config$corncyc$pathways_col)
-      )
-    )
-  }else if(exists("pglipid::pathways_col")) {
-    print("pathways_col not found 2!")
+
+make_pathways_col <- function(){
+  if(exists("pglipid::pathways_col")) {
+    print("pathways_col not found in rda!")
     return(pglipid::pathways_col)
-  } else{
-    print("pathways_col not found 3!")
+  }else if (!exists("pathways_col")) {
+     print("pathways_col not found 1!")
+     return(
+       read_col(
+         file.path(config$corncyc$dir,
+                   config$corncyc$pathways_col)
+       )
+     )
+  } else if (exists("pathways_col")){
     return(pathways_col)
   }
 
-)
+}
 
 
 
