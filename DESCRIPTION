@@ -14,5 +14,10 @@ LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.0.9000
 Depends:
+    ComplexHeatmap,
+    ggplot2,
+    ggpubr,
+    regioneR,
+    magrittr,
     GenomicRanges,
-    R (>= 2.10)
+    R (>= 3.5)

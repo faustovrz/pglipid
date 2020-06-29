@@ -1,39 +1,14 @@
-config.yaml <- file.path('config.yaml')
+# The configuration is stored at "sysdata.rda"
 
-system.file('extdata','config.yaml', package = "pglipid", mustWork= TRUE)
-
-file.exists(config.yaml)
-configr::eval.config.sections(config.yaml)
-
-config <- configr::read.config(file = config.yaml)
-
-corncyc <-  configr::eval.config(
-  config = "corncyc",
-  file = config.yaml)
-
-ref <-  configr::eval.config(
-  config = "ref",
-  file = config.yaml)
-
-input <- configr::eval.config(
-  config = "input",
-  file = config.yaml)
-
-output <- configr::eval.config(
-  config = "output",
-  file = config.yaml)
-
-#' @title Make cyc file paths from configuaration keys
-#' @description  Make cyc file paths from configuaration keys
-#' @details
-#' @param input Biocyc col file
-#'
-#' @export
-cyc_file <- function(x){
-  file.path(corncyc$dir,corncyc[x])
+internal_data <- file.path("R","sysdata.rda")
+if(file.exists(internal_data)){
+  load(internal_data)
 }
 
-
+internal_data <- file.path("..","R","sysdata.rda")
+if(file.exists(internal_data)){
+  load(internal_data)
+}
 
 #' @title Read Biocyc col report tables
 #' @description The col files are tab delimited files representing info in data files
@@ -50,9 +25,6 @@ cyc_file <- function(x){
 #' }
 #'
 read_col <- function(input = NULL) {
-  if ( cyc_file(input) %>% file.exists()) {
-    input <- cyc_file(input)
-  }
   read.table(
     input,
     sep = "\t",
@@ -62,25 +34,25 @@ read_col <- function(input = NULL) {
     na.strings = "")
 }
 
-load(file.path('data','corncyc_pathway.rda'))
 
-pathway_n <- corncyc_pathway %>%
-  dplyr::pull(Gene.id) %>%
-  unique %>% length()
 
-genes_col <- read_col("genes_col")
-gene_n <- nrow(genes_col)
-# gene_n <- length(names(corncyc_seq))
 
-unassined_n <-  gene_n - pathway_n
+genes_col <- read_col(
+  file.path(
+    config$corncyc$dir,
+    config$corncyc$genes_col
+  )
+)
 
-cyc_count <- corncyc_pathway %>%
-  dplyr::group_by(Pathway.id,Pathway.name) %>%
-  dplyr::filter(Gene.name != "unknown")  %>%
-  dplyr::summarise(n = length(Gene.name))
 
 
 cyc_test <- function(test_genes) {
+
+  cyc_count <- pglipid::corncyc_pathway %>%
+    dplyr::group_by(Pathway.id,Pathway.name) %>%
+    dplyr::filter(Gene.name != "unknown")  %>%
+    dplyr::summarise(n = length(Gene.name))
+
   cyc_test <- cyc_count %>%
     dplyr::right_join(test_count(test_genes)) %>%
     dplyr::mutate(cover = n_test/n) %>%
@@ -98,8 +70,8 @@ test_count <- function(test_genes) {
     as.data.frame()
   colnames(gene_ids)[1] <- "Gene.name"
   test_count <-  gene_ids %>%
-    dplyr::left_join(corncyc_pathway) %>%
-    dplyr::group_by(Pathway.id,Pathway.name) %>%
+    dplyr::left_join(pglipid::corncyc_pathway) %>%
+    dplyr::group_by(Pathway.id, Pathway.name) %>%
     dplyr::summarise(n_test = length(Gene.name)) %>%
     dplyr::arrange(-n_test)
 
@@ -109,6 +81,15 @@ test_count <- function(test_genes) {
 
 
 corncyc_classify <- function(test_genes, bg = NULL){
+
+  pathway_n <- pglipid::corncyc_pathway %>%
+    dplyr::pull(Gene.id) %>%
+    unique %>% length()
+
+  gene_n <- nrow(genes_col)
+  # gene_n <- length(names(corncyc_seq))
+
+  unassined_n <-  gene_n - pathway_n
 
   sum_test <- length(test_genes)
   cyc_test <- cyc_test(test_genes)
@@ -158,6 +139,6 @@ corncyc_classify <- function(test_genes, bg = NULL){
 
 get_cyc_id <- function(gene_id){
   data.frame(gene_id = gene_id) %>%
-    dplyr::left_join(id_map) %>%
+    dplyr::left_join(pglipid::id_map) %>%
     dplyr::pull(merge)
 }

@@ -1,4 +1,4 @@
-#' @title Read Biocyc col report tables
+
 #' @description The col files are tab delimited files representing info in data files
 #' @details
 #' @param input Biocyc col file
@@ -12,10 +12,8 @@
 #' read_col("proteins.dat")
 #' }
 #'
+#'
 read_col <- function(input = NULL) {
-  if ( cyc_file(input) %>% file.exists()) {
-    input <- cyc_file(input)
-  }
   read.table(
     input,
     sep = "\t",

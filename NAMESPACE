@@ -2,7 +2,6 @@
 
 export("%>%")
 export(add_transcript_version)
-export(cyc_file)
 export(drop_transcript_suffix)
 export(read_col)
 export(read_dat)

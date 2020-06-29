@@ -1,27 +1,20 @@
-config.yaml <- file.path('config.yaml')
+# The configuration is stored at "sysdata.rda"
 
-file.exists(config.yaml)
-configr::eval.config.sections(config.yaml)
+internal_data <- file.path("R","sysdata.rda")
+if(file.exists(internal_data)){
+  load(internal_data)
+}
 
-config <- configr::read.config(file = config.yaml)
-
-ref <-  configr::eval.config(
-  config = "ref",
-  file = config.yaml)
-
-input <- configr::eval.config(
-  config = "input",
-  file = config.yaml)
-
-output <- configr::eval.config(
-  config = "output",
-  file = config.yaml)
+internal_data <- file.path("..","R","sysdata.rda")
+if(file.exists(internal_data)){
+  load(internal_data)
+}
 
 
 
 get_chr_GR<- function (version = "AGPv4"){
 
-  chr_bed  <- ref[[version]]$bed$file
+  chr_bed  <- config$ref[[version]]$bed$file
 
 
   chr <- regioneR::toGRanges(chr_bed)
@@ -35,17 +28,24 @@ get_chr_GR<- function (version = "AGPv4"){
 
 
 get_gene_annot<- function( version = "AGPv4", organellar = FALSE){
-  gff_file <- ref[[version]]$gff$file
+  gff_file <- config$ref[[version]]$gff$file
   chr <- get_chr_GR(version)
   genes <- rtracklayer::import(gff_file)
 
   if(organellar == FALSE){
+
+    # I could not manage to make the subset function of the [
+    # operator to work inside this function
     # genes <- subset(genes, GenomeInfoDb::seqnames(genes) %in% 1:10)
+    # So I used the prune and the subsetting must be done in an outside script
+    # that loads (attaches) GenomicRanges
+    #
     GenomeInfoDb::seqlevels(genes, pruning.mode="coarse") <- GenomeInfoDb::seqlevels(chr)
     GenomeInfoDb::seqinfo(genes) <- GenomeInfoDb::seqinfo(chr)
     genes <- GenomeInfoDb::sortSeqlevels(genes)
   }
   names(genes) <- genes$gene_id
+
   return(genes)
 }
 

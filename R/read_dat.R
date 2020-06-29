@@ -13,9 +13,6 @@
 #
 
 read_dat <- function(input = NULL){
-  if ( file.exists(cyc_file(input))) {
-    input <- cyc_file(input)
-  }
 
   dat <- readLines(input, encoding = "UTF-8") %>%
     gsub("^ +", "", .,) %>%          # remove leading spaces
