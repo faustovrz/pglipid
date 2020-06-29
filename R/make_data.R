@@ -31,10 +31,10 @@ make_pathways_col <- function()(
 
 )
 
-print("pathways_col not found 2!")
+
 
 pathways_col <-  make_pathways_col()
-
+print("pathways_col not found 2!")
 
 make_genes_col <- function(ref)(
   if(!exists("genes_col")) {
